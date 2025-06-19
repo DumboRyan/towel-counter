@@ -1,0 +1,146 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Towel Counter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 400px;
+      margin: 30px auto;
+      padding: 20px;
+      border: 2px solid #ccc;
+      border-radius: 10px;
+      background: #f9f9f9;
+    }
+    h1 {
+      text-align: center;
+      font-size: 24px;
+    }
+    .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 10px 0;
+    }
+    .label {
+      flex: 1;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+    }
+    .controls button {
+      font-size: 20px;
+      width: 30px;
+      height: 30px;
+    }
+    .controls input {
+      width: 40px;
+      text-align: center;
+      font-size: 16px;
+      margin: 0 5px;
+    }
+    .total {
+      font-weight: bold;
+      font-size: 20px;
+      margin-top: 20px;
+      text-align: center;
+    }
+    button.action {
+      margin: 15px auto;
+      padding: 10px 20px;
+      font-size: 16px;
+      display: block;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Towel Counter</h1>
+
+  <div class="item"><span class="label">Bath Towel</span>
+    <div class="controls">
+      <button onclick="adjust('bathTowel', -1)">-</button>
+      <input type="number" id="bathTowel" value="0" min="0">
+      <button onclick="adjust('bathTowel', 1)">+</button>
+    </div>
+  </div>
+
+  <div class="item"><span class="label">Bath Mat</span>
+    <div class="controls">
+      <button onclick="adjust('bathMat', -1)">-</button>
+      <input type="number" id="bathMat" value="0" min="0">
+      <button onclick="adjust('bathMat', 1)">+</button>
+    </div>
+  </div>
+
+  <div class="item"><span class="label">Hand Towel</span>
+    <div class="controls">
+      <button onclick="adjust('handTowel', -1)">-</button>
+      <input type="number" id="handTowel" value="0" min="0">
+      <button onclick="adjust('handTowel', 1)">+</button>
+    </div>
+  </div>
+
+  <div class="item"><span class="label">Face Towel</span>
+    <div class="controls">
+      <button onclick="adjust('faceTowel', -1)">-</button>
+      <input type="number" id="faceTowel" value="0" min="0">
+      <button onclick="adjust('faceTowel', 1)">+</button>
+    </div>
+  </div>
+
+  <div class="item"><span class="label">Pool Towel</span>
+    <div class="controls">
+      <button onclick="adjust('poolTowel', -1)">-</button>
+      <input type="number" id="poolTowel" value="0" min="0">
+      <button onclick="adjust('poolTowel', 1)">+</button>
+    </div>
+  </div>
+
+  <div class="item"><span class="label">Robes</span>
+    <div class="controls">
+      <button onclick="adjust('robes', -1)">-</button>
+      <input type="number" id="robes" value="0" min="0">
+      <button onclick="adjust('robes', 1)">+</button>
+    </div>
+  </div>
+
+  <button class="action" onclick="calculateTotal()">Calculate Total</button>
+  <button class="action" onclick="resetFields()">Reset</button>
+
+  <div class="total" id="totalOutput">Total: 0</div>
+
+  <script>
+    function adjust(id, amount) {
+      const input = document.getElementById(id);
+      let value = parseInt(input.value) || 0;
+      value += amount;
+      if (value < 0) value = 0;
+      input.value = value;
+    }
+
+    function calculateTotal() {
+      const ids = ['bathTowel', 'bathMat', 'handTowel', 'faceTowel', 'poolTowel', 'robes'];
+      let total = 0;
+      ids.forEach(id => {
+        total += parseInt(document.getElementById(id).value) || 0;
+      });
+      document.getElementById('totalOutput').innerText = `Total: ${total}`;
+    }
+
+    function resetFields() {
+      const ids = ['bathTowel', 'bathMat', 'handTowel', 'faceTowel', 'poolTowel', 'robes'];
+      ids.forEach(id => {
+        document.getElementById(id).value = 0;
+      });
+      document.getElementById('totalOutput').innerText = 'Total: 0';
+    }
+  </script>
+
+</body>
+</html>
