@@ -15,6 +15,12 @@
     h2 { margin-bottom: 8px; }
     label { display: block; margin-top: 12px; font-weight: bold; }
     input { width: 100%; padding: 8px; margin-top: 4px; }
+    .section-box {
+      border: 2px solid #444;
+      padding: 12px;
+      margin-bottom: 20px;
+      background: #f7f7f7;
+    }
     .buttons { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
     button { padding: 10px 14px; font-size: 16px; cursor: pointer; }
     img { max-width: 100%; margin-top: 10px; border: 1px solid #ccc; }
@@ -23,6 +29,13 @@
   </style>
 </head>
 <body>
+
+<!-- PROPERTY INFORMATION SECTION -->
+<div class="section-box">
+  <h3>Property Information</h3>
+  <label>Unit / House Name</label>
+  <input type="text" id="globalUnitInput" placeholder="Enter unit or house name" />
+</div>
 
 <h2 id="pageTitle">Item 1</h2>
 
@@ -49,11 +62,13 @@
 <div id="summaryPage" class="hidden">
   <h2>Inventory Summary</h2>
 
-  <!-- NEW GLOBAL UNIT / HOUSE NAME FIELD -->
-  <label>Unit / House Name</label>
-  <input type="text" id="globalUnitInput" placeholder="Enter unit or house name" />
+  <div class="section-box">
+    <h3>Property Information</h3>
+    <label>Unit / House Name</label>
+    <input type="text" id="globalUnitInputSummary" placeholder="Enter unit or house name" />
+  </div>
 
-  <div id="summaryHeader" style="font-size:18px;font-weight:bold;margin-bottom:12px;margin-top:12px;"></div>
+  <div id="summaryHeader" style="font-size:18px;font-weight:bold;margin-bottom:12px;"></div>
   <div id="summaryContent"></div>
 
   <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
@@ -133,6 +148,15 @@ const countInput = document.getElementById('countInput');
 const photoInput = document.getElementById('photoInput');
 const preview = document.getElementById('preview');
 const pageTitle = document.getElementById('pageTitle');
+
+/* ---------------------------------------------------------
+   FIXED + / – BUTTONS
+--------------------------------------------------------- */
+function changeCount(delta) {
+  let value = parseInt(countInput.value || 1, 10);
+  value = Math.max(1, value + delta);
+  countInput.value = value;
+}
 
 /* ---------------------------------------------------------
    IMAGE RESIZE (IMPROVED)
@@ -254,8 +278,9 @@ function finish() {
   summary.innerHTML = '';
 
   // Load global unit name
-  document.getElementById("globalUnitInput").value =
-    localStorage.getItem("globalUnitName") || "";
+  const unitName = document.getElementById("globalUnitInput").value;
+  document.getElementById("globalUnitInputSummary").value = unitName;
+  localStorage.setItem("globalUnitName", unitName);
 
   const totalItems = records.length;
   const totalQty = records.reduce((s, r) => s + Number(r.count || 0), 0);
@@ -297,6 +322,7 @@ function resetAll() {
   preview.classList.add('hidden');
 
   document.getElementById("globalUnitInput").value = "";
+  document.getElementById("globalUnitInputSummary").value = "";
 
   document.getElementById('formPage').classList.remove('hidden');
   document.getElementById('summaryPage').classList.add('hidden');
@@ -314,7 +340,7 @@ async function exportPDF() {
   const pageHeight = doc.internal.pageSize.height;
   const today = new Date().toLocaleString();
 
-  const unitName = document.getElementById("globalUnitInput").value;
+  const unitName = document.getElementById("globalUnitInputSummary").value;
   localStorage.setItem("globalUnitName", unitName);
 
   doc.setFontSize(16);
