@@ -1,146 +1,243 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Towel Counter</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Item Capture App</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 400px;
-      margin: 30px auto;
-      padding: 20px;
-      border: 2px solid #ccc;
-      border-radius: 10px;
-      background: #f9f9f9;
+      padding: 16px;
+      max-width: 600px;
+      margin: auto;
     }
-    h1 {
-      text-align: center;
-      font-size: 24px;
-    }
-    .item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin: 10px 0;
-    }
-    .label {
-      flex: 1;
-    }
-    .controls {
-      display: flex;
-      align-items: center;
-    }
-    .controls button {
-      font-size: 20px;
-      width: 30px;
-      height: 30px;
-    }
-    .controls input {
-      width: 40px;
-      text-align: center;
-      font-size: 16px;
-      margin: 0 5px;
-    }
-    .total {
-      font-weight: bold;
-      font-size: 20px;
-      margin-top: 20px;
-      text-align: center;
-    }
-    button.action {
-      margin: 15px auto;
-      padding: 10px 20px;
-      font-size: 16px;
-      display: block;
-      width: 100%;
-    }
+    h2 { margin-bottom: 8px; }
+    label { display: block; margin-top: 12px; font-weight: bold; }
+    input { width: 100%; padding: 8px; margin-top: 4px; }
+    .buttons { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+    button { padding: 10px 14px; font-size: 16px; cursor: pointer; }
+    img { max-width: 100%; margin-top: 10px; border: 1px solid #ccc; }
+    .hidden { display: none; }
+    .summary-item { border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; font-size: 18px; }
   </style>
 </head>
 <body>
 
-  <h1>Towel Counter</h1>
+<h2 id="pageTitle">Item 1</h2>
 
-  <div class="item"><span class="label">Bath Towel</span>
-    <div class="controls">
-      <button onclick="adjust('bathTowel', -1)">-</button>
-      <input type="number" id="bathTowel" value="0" min="0">
-      <button onclick="adjust('bathTowel', 1)">+</button>
-    </div>
+<div id="formPage">
+
+  <label>Item Name</label>
+  <input type="text" id="itemNameInput" placeholder="Enter item name" />
+
+  <label>Brand Name</label>
+  <input type="text" id="brandInput" placeholder="Enter brand name" />
+
+  <label>Number of Item</label>
+  <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+    <button type="button" onclick="changeCount(-1)">-</button>
+    <input type="number" id="countInput" min="1" value="1" style="text-align:center;" />
+    <button type="button" onclick="changeCount(1)">+</button>
   </div>
 
-  <div class="item"><span class="label">Bath Mat</span>
-    <div class="controls">
-      <button onclick="adjust('bathMat', -1)">-</button>
-      <input type="number" id="bathMat" value="0" min="0">
-      <button onclick="adjust('bathMat', 1)">+</button>
-    </div>
+  <label>Take Picture</label>
+  <input type="file" id="photoInput" accept="image/*" capture="environment" />
+  <img id="preview" class="hidden" />
+</div>
+
+<div id="summaryPage" class="hidden">
+  <h2>Inventory Summary</h2>
+  <div id="summaryHeader" style="font-size:18px;font-weight:bold;margin-bottom:12px;"></div>
+  <div id="summaryContent"></div>
+  <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
+    <button onclick="exportPDF()">Export PDF</button>
+    <button onclick="resetAll()">Confirm & Reset</button>
   </div>
+</div>
 
-  <div class="item"><span class="label">Hand Towel</span>
-    <div class="controls">
-      <button onclick="adjust('handTowel', -1)">-</button>
-      <input type="number" id="handTowel" value="0" min="0">
-      <button onclick="adjust('handTowel', 1)">+</button>
-    </div>
-  </div>
+<div class="buttons">
+  <button onclick="goBack()">Back</button>
+  <button onclick="goNext()">Next</button>
+  <button onclick="finish()">View Summary</button>
+  <button onclick="resetAll()">Reset</button>
+</div>
 
-  <div class="item"><span class="label">Face Towel</span>
-    <div class="controls">
-      <button onclick="adjust('faceTowel', -1)">-</button>
-      <input type="number" id="faceTowel" value="0" min="0">
-      <button onclick="adjust('faceTowel', 1)">+</button>
-    </div>
-  </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+let records = JSON.parse(localStorage.getItem('kitchenRecords')) || [];
+let currentIndex = 0;
 
-  <div class="item"><span class="label">Pool Towel</span>
-    <div class="controls">
-      <button onclick="adjust('poolTowel', -1)">-</button>
-      <input type="number" id="poolTowel" value="0" min="0">
-      <button onclick="adjust('poolTowel', 1)">+</button>
-    </div>
-  </div>
+const itemNameInput = document.getElementById('itemNameInput');
+const brandInput = document.getElementById('brandInput');
+const countInput = document.getElementById('countInput');
+const photoInput = document.getElementById('photoInput');
+const preview = document.getElementById('preview');
+const pageTitle = document.getElementById('pageTitle');
 
-  <div class="item"><span class="label">Robes</span>
-    <div class="controls">
-      <button onclick="adjust('robes', -1)">-</button>
-      <input type="number" id="robes" value="0" min="0">
-      <button onclick="adjust('robes', 1)">+</button>
-    </div>
-  </div>
+function changeCount(delta) {
+  let value = parseInt(countInput.value || 1, 10);
+  value = Math.max(1, value + delta);
+  countInput.value = value;
+}
 
-  <button class="action" onclick="calculateTotal()">Calculate Total</button>
-  <button class="action" onclick="resetFields()">Reset</button>
+photoInput.addEventListener('change', () => {
+  const file = photoInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    preview.src = reader.result;
+    preview.classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+});
 
-  <div class="total" id="totalOutput">Total: 0</div>
+function saveCurrent() {
+  records[currentIndex] = {
+    itemName: itemNameInput.value,
+    brand: brandInput.value,
+    count: countInput.value,
+    image: preview.src || null
+  };
+  localStorage.setItem('kitchenRecords', JSON.stringify(records));
+}
 
-  <script>
-    function adjust(id, amount) {
-      const input = document.getElementById(id);
-      let value = parseInt(input.value) || 0;
-      value += amount;
-      if (value < 0) value = 0;
-      input.value = value;
+function loadCurrent() {
+  const data = records[currentIndex] || {};
+  itemNameInput.value = data.itemName || '';
+  brandInput.value = data.brand || '';
+  countInput.value = data.count || 1;
+  preview.src = data.image || '';
+  preview.classList.toggle('hidden', !data.image);
+  pageTitle.innerText = `Item ${currentIndex + 1}`;
+  photoInput.value = '';
+}
+
+function goNext() {
+  saveCurrent();
+  currentIndex++;
+  loadCurrent();
+}
+
+function goBack() {
+  if (currentIndex === 0) return;
+  saveCurrent();
+  currentIndex--;
+  loadCurrent();
+}
+
+function finish() {
+  saveCurrent();
+  document.getElementById('formPage').classList.add('hidden');
+  document.getElementById('summaryPage').classList.remove('hidden');
+
+  const summary = document.getElementById('summaryContent');
+  const header = document.getElementById('summaryHeader');
+  summary.innerHTML = '';
+
+  const totalItems = records.length;
+  const totalQty = records.reduce((s, r) => s + Number(r.count || 0), 0);
+  header.innerText = `Total Items: ${totalItems} | Total Quantity: ${totalQty}`;
+
+  records.forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'summary-item';
+    div.innerHTML = `${r.image ? `<img src="${r.image}">` : ''}
+      <strong>${r.itemName || 'Item'}</strong><br>
+      Brand: ${r.brand || '-'}<br>
+      Qty: ${r.count || '-'}`;
+    summary.appendChild(div);
+  });
+}
+
+function resetAll() {
+  records = [];
+  localStorage.removeItem('kitchenRecords');
+  currentIndex = 0;
+  itemNameInput.value = '';
+  brandInput.value = '';
+  countInput.value = 1;
+  preview.src = '';
+  preview.classList.add('hidden');
+  document.getElementById('formPage').classList.remove('hidden');
+  document.getElementById('summaryPage').classList.add('hidden');
+  pageTitle.innerText = 'Item 1';
+}
+
+async function exportPDF() {
+  try {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      alert('PDF library failed to load. Please check internet connection and reload the page.');
+      return;
     }
 
-    function calculateTotal() {
-      const ids = ['bathTowel', 'bathMat', 'handTowel', 'faceTowel', 'poolTowel', 'robes'];
-      let total = 0;
-      ids.forEach(id => {
-        total += parseInt(document.getElementById(id).value) || 0;
-      });
-      document.getElementById('totalOutput').innerText = `Total: ${total}`;
+    if (!records.length) {
+      alert('No items to export.');
+      return;
     }
 
-    function resetFields() {
-      const ids = ['bathTowel', 'bathMat', 'handTowel', 'faceTowel', 'poolTowel', 'robes'];
-      ids.forEach(id => {
-        document.getElementById(id).value = 0;
-      });
-      document.getElementById('totalOutput').innerText = 'Total: 0';
-    }
-  </script>
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
+    const compressImage = (imgSrc) => new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxWidth = 800;
+        const scale = Math.min(maxWidth / img.width, 1);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.onerror = () => resolve(null);
+      img.src = imgSrc;
+    });
+
+    let y = 15;
+    const pageHeight = doc.internal.pageSize.height;
+    const today = new Date().toLocaleString();
+
+    doc.setFontSize(16);
+    doc.text('Inventory Report', 10, y);
+    y += 7;
+    doc.setFontSize(11);
+    doc.text(`Date: ${today}`, 10, y);
+    y += 10;
+
+    for (const r of records) {
+      if (y > pageHeight - 70) {
+        doc.addPage();
+        y = 15;
+      }
+
+      doc.setFontSize(14);
+      doc.text(r.itemName || 'Item', 10, y);
+      y += 6;
+
+      doc.setFontSize(12);
+      doc.text(`Brand: ${r.brand || '-'}`, 10, y);
+      y += 6;
+      doc.text(`Quantity: ${r.count || '-'}`, 10, y);
+      y += 6;
+
+      if (r.image) {
+        const img = await compressImage(r.image);
+        if (img) {
+          doc.addImage(img, 'JPEG', 10, y, 60, 45);
+          y += 50;
+        }
+      }
+
+      y += 5;
+    }
+
+    doc.save('inventory-with-photos.pdf');
+  } catch (err) {
+    console.error(err);
+    alert('Failed to export PDF. Please try again.');
+  }
+}
+</script>
 </body>
 </html>
