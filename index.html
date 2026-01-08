@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FG Item Capture</title>
+  <title>Item Capture App</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -33,7 +34,7 @@
   <label>Brand Name</label>
   <input type="text" id="brandInput" placeholder="Enter brand name" />
 
-  <label>Number of Item</label>
+  <label>Quantity</label>
   <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
     <button type="button" onclick="changeCount(-1)">-</button>
     <input type="number" id="countInput" min="1" value="1" style="text-align:center;" />
@@ -49,6 +50,7 @@
   <h2>Inventory Summary</h2>
   <div id="summaryHeader" style="font-size:18px;font-weight:bold;margin-bottom:12px;"></div>
   <div id="summaryContent"></div>
+
   <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
     <button onclick="exportPDF()">Export PDF</button>
     <button onclick="resetAll()">Confirm & Reset</button>
@@ -63,7 +65,60 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <script>
+/* ---------------------------------------------------------
+   UUID GENERATOR
+--------------------------------------------------------- */
+function uuid() {
+  return 'xxxxxx-xxxx-4xxx-yxxx-xxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+/* ---------------------------------------------------------
+   INDEXEDDB SETUP
+--------------------------------------------------------- */
+let db;
+const dbReq = indexedDB.open("KitchenDB", 1);
+
+dbReq.onupgradeneeded = (e) => {
+  db = e.target.result;
+  if (!db.objectStoreNames.contains("images")) {
+    db.createObjectStore("images", { keyPath: "id" });
+  }
+};
+
+dbReq.onsuccess = (e) => {
+  db = e.target.result;
+};
+
+function saveImageToDB(id, dataURL) {
+  return new Promise((resolve) => {
+    const tx = db.transaction("images", "readwrite");
+    tx.objectStore("images").put({ id, dataURL });
+    tx.oncomplete = resolve;
+  });
+}
+
+function loadImageFromDB(id) {
+  return new Promise((resolve) => {
+    const tx = db.transaction("images", "readonly");
+    const req = tx.objectStore("images").get(id);
+    req.onsuccess = () => resolve(req.result?.dataURL || null);
+  });
+}
+
+function deleteAllImages() {
+  const tx = db.transaction("images", "readwrite");
+  tx.objectStore("images").clear();
+}
+
+/* ---------------------------------------------------------
+   APP STATE
+--------------------------------------------------------- */
 let records = JSON.parse(localStorage.getItem('kitchenRecords')) || [];
 let currentIndex = 0;
 
@@ -74,47 +129,98 @@ const photoInput = document.getElementById('photoInput');
 const preview = document.getElementById('preview');
 const pageTitle = document.getElementById('pageTitle');
 
-function changeCount(delta) {
-  let value = parseInt(countInput.value || 1, 10);
-  value = Math.max(1, value + delta);
-  countInput.value = value;
+/* ---------------------------------------------------------
+   IMAGE RESIZE
+--------------------------------------------------------- */
+function resizeImage(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxSize = 1200;
+        let w = img.width;
+        let h = img.height;
+
+        if (w > h && w > maxSize) {
+          h *= maxSize / w;
+          w = maxSize;
+        } else if (h > maxSize) {
+          w *= maxSize / h;
+          h = maxSize;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
-photoInput.addEventListener('change', () => {
+/* ---------------------------------------------------------
+   PHOTO INPUT HANDLER
+--------------------------------------------------------- */
+photoInput.addEventListener("change", async () => {
   const file = photoInput.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    preview.src = reader.result;
-    preview.classList.remove('hidden');
-  };
-  reader.readAsDataURL(file);
+
+  const resized = await resizeImage(file);
+  preview.src = resized;
+  preview.classList.remove("hidden");
+
+  const id = records[currentIndex].id;
+  await saveImageToDB(id, resized);
 });
 
+/* ---------------------------------------------------------
+   SAVE / LOAD
+--------------------------------------------------------- */
 function saveCurrent() {
-  records[currentIndex] = {
-    itemName: itemNameInput.value,
-    brand: brandInput.value,
-    count: countInput.value,
-    image: preview.src || null
-  };
+  records[currentIndex].itemName = itemNameInput.value;
+  records[currentIndex].brand = brandInput.value;
+  records[currentIndex].count = countInput.value;
+
   localStorage.setItem('kitchenRecords', JSON.stringify(records));
 }
 
-function loadCurrent() {
-  const data = records[currentIndex] || {};
+async function loadCurrent() {
+  const data = records[currentIndex];
+
   itemNameInput.value = data.itemName || '';
   brandInput.value = data.brand || '';
   countInput.value = data.count || 1;
-  preview.src = data.image || '';
-  preview.classList.toggle('hidden', !data.image);
+
+  const img = await loadImageFromDB(data.id);
+  preview.src = img || '';
+  preview.classList.toggle('hidden', !img);
+
   pageTitle.innerText = `Item ${currentIndex + 1}`;
   photoInput.value = '';
 }
 
+/* ---------------------------------------------------------
+   NAVIGATION
+--------------------------------------------------------- */
 function goNext() {
   saveCurrent();
   currentIndex++;
+
+  if (!records[currentIndex]) {
+    records[currentIndex] = {
+      id: uuid(),
+      itemName: "",
+      brand: "",
+      count: 1
+    };
+  }
+
   loadCurrent();
 }
 
@@ -125,8 +231,12 @@ function goBack() {
   loadCurrent();
 }
 
+/* ---------------------------------------------------------
+   SUMMARY
+--------------------------------------------------------- */
 function finish() {
   saveCurrent();
+
   document.getElementById('formPage').classList.add('hidden');
   document.getElementById('summaryPage').classList.remove('hidden');
 
@@ -138,106 +248,100 @@ function finish() {
   const totalQty = records.reduce((s, r) => s + Number(r.count || 0), 0);
   header.innerText = `Total Items: ${totalItems} | Total Quantity: ${totalQty}`;
 
-  records.forEach(r => {
+  records.forEach(async (r) => {
     const div = document.createElement('div');
     div.className = 'summary-item';
-    div.innerHTML = `${r.image ? `<img src="${r.image}">` : ''}
+
+    const img = await loadImageFromDB(r.id);
+
+    div.innerHTML = `
+      ${img ? `<img src="${img}">` : ''}
       <strong>${r.itemName || 'Item'}</strong><br>
       Brand: ${r.brand || '-'}<br>
-      Qty: ${r.count || '-'}`;
+      Qty: ${r.count || '-'}
+    `;
+
     summary.appendChild(div);
   });
 }
 
+/* ---------------------------------------------------------
+   RESET
+--------------------------------------------------------- */
 function resetAll() {
   records = [];
   localStorage.removeItem('kitchenRecords');
+  deleteAllImages();
+
   currentIndex = 0;
+  records[0] = { id: uuid(), itemName: "", brand: "", count: 1 };
+
   itemNameInput.value = '';
   brandInput.value = '';
   countInput.value = 1;
   preview.src = '';
   preview.classList.add('hidden');
+
   document.getElementById('formPage').classList.remove('hidden');
   document.getElementById('summaryPage').classList.add('hidden');
   pageTitle.innerText = 'Item 1';
 }
 
+/* ---------------------------------------------------------
+   PDF EXPORT
+--------------------------------------------------------- */
 async function exportPDF() {
-  try {
-    if (!window.jspdf || !window.jspdf.jsPDF) {
-      alert('PDF library failed to load. Please check internet connection and reload the page.');
-      return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  let y = 15;
+  const pageHeight = doc.internal.pageSize.height;
+  const today = new Date().toLocaleString();
+
+  doc.setFontSize(16);
+  doc.text('Inventory Report', 10, y);
+  y += 7;
+
+  doc.setFontSize(11);
+  doc.text(`Date: ${today}`, 10, y);
+  y += 10;
+
+  for (const r of records) {
+    if (y > pageHeight - 70) {
+      doc.addPage();
+      y = 15;
     }
 
-    if (!records.length) {
-      alert('No items to export.');
-      return;
+    doc.setFontSize(14);
+    doc.text(r.itemName || 'Item', 10, y);
+    y += 6;
+
+    doc.setFontSize(12);
+    doc.text(`Brand: ${r.brand || '-'}`, 10, y);
+    y += 6;
+    doc.text(`Quantity: ${r.count || '-'}`, 10, y);
+    y += 6;
+
+    const img = await loadImageFromDB(r.id);
+    if (img) {
+      doc.addImage(img, 'JPEG', 10, y, 60, 45);
+      y += 50;
     }
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-    const compressImage = (imgSrc) => new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const maxWidth = 800;
-        const scale = Math.min(maxWidth / img.width, 1);
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.6));
-      };
-      img.onerror = () => resolve(null);
-      img.src = imgSrc;
-    });
-
-    let y = 15;
-    const pageHeight = doc.internal.pageSize.height;
-    const today = new Date().toLocaleString();
-
-    doc.setFontSize(16);
-    doc.text('Inventory Report', 10, y);
-    y += 7;
-    doc.setFontSize(11);
-    doc.text(`Date: ${today}`, 10, y);
-    y += 10;
-
-    for (const r of records) {
-      if (y > pageHeight - 70) {
-        doc.addPage();
-        y = 15;
-      }
-
-      doc.setFontSize(14);
-      doc.text(r.itemName || 'Item', 10, y);
-      y += 6;
-
-      doc.setFontSize(12);
-      doc.text(`Brand: ${r.brand || '-'}`, 10, y);
-      y += 6;
-      doc.text(`Quantity: ${r.count || '-'}`, 10, y);
-      y += 6;
-
-      if (r.image) {
-        const img = await compressImage(r.image);
-        if (img) {
-          doc.addImage(img, 'JPEG', 10, y, 60, 45);
-          y += 50;
-        }
-      }
-
-      y += 5;
-    }
-
-    doc.save('inventory-with-photos.pdf');
-  } catch (err) {
-    console.error(err);
-    alert('Failed to export PDF. Please try again.');
+    y += 5;
   }
+
+  doc.save('inventory-with-photos.pdf');
 }
+
+/* ---------------------------------------------------------
+   INITIALIZE FIRST ITEM
+--------------------------------------------------------- */
+if (records.length === 0) {
+  records.push({ id: uuid(), itemName: "", brand: "", count: 1 });
+}
+
+loadCurrent();
 </script>
 </body>
 </html>
